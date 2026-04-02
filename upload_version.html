@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plastic Detection - Upload Version</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            background: #f8f9fa;
+            border-color: #764ba2;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        .plastic-type {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        .confidence {
+            font-size: 1.2rem;
+            color: #28a745;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .detail-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Plastic Detection System</h1>
+        <p>Upload an image of plastic to analyze its type and construction properties</p>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <h3>📁 Click to Upload Image</h3>
+            <p>or drag and drop an image here</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+        </div>
+        
+        <button class="btn" onclick="analyzeImage()" id="analyzeBtn" disabled>🔍 Analyze Plastic</button>
+        
+        <div id="preview" style="margin: 20px 0;"></div>
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let imageData = null;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                document.getElementById('analyzeBtn').disabled = false;
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    preview.innerHTML = `
+                        <h3>📷 Image Preview:</h3>
+                        <img src="${e.target.result}" style="max-width: 100%; max-height: 300px; border-radius: 10px;">
+                    `;
+                    
+                    // Convert to base64 for API
+                    imageData = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function analyzeImage() {
+            if (!imageData) return;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>🔄 Analyzing image...</p>';
+            
+            try {
+                const response = await fetch('/api/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayResults(result);
+                } else {
+                    resultDiv.innerHTML = `<p>❌ Error: ${result.error}</p>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<p>❌ Error: ${err.message}</p>`;
+            }
+        }
+
+        function displayResults(result) {
+            const plasticType = result.plastic_type;
+            const confidence = (result.confidence * 100).toFixed(1);
+            const constructionData = result.construction_data;
+            
+            document.getElementById('result').innerHTML = `
+                <div class="plastic-type">${plasticType}</div>
+                <div class="confidence">Confidence: ${confidence}%</div>
+                
+                <h3>🏗️ Construction Analysis</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div>Recyclability</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;">${constructionData.recyclability}%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${constructionData.recyclability}%"></div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div>Durability</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;">${constructionData.durability}%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${constructionData.durability}%"></div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div>Cost Efficiency</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;">${100 - constructionData.cost}%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${100 - constructionData.cost}%"></div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div>Strength Rating</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;">${constructionData.strength_rating}</div>
+                    </div>
+                </div>
+                
+                <h4>📝 Description</h4>
+                <p>${constructionData.description}</p>
+                
+                <h4>🔧 Construction Applications</h4>
+                <p>${constructionData.applications.join(', ')}</p>
+                
+                <h4>🌱 Environmental Impact</h4>
+                <p>${constructionData.environmental_impact}</p>
+            `;
+        }
+    </script>
+</body>
+</html>

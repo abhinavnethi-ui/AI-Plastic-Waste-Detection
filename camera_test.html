@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Test</title>
+</head>
+<body>
+    <h1>Camera Test</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <br><br>
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="stopCamera()">Stop Camera</button>
+    
+    <div id="status"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        let stream = null;
+
+        async function startCamera() {
+            try {
+                status.innerHTML = 'Requesting camera access...';
+                
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 640, 
+                        height: 480,
+                        facingMode: 'environment'
+                    } 
+                });
+                
+                video.srcObject = stream;
+                status.innerHTML = '✅ Camera working! You can see the video above.';
+                
+            } catch (err) {
+                status.innerHTML = '❌ Camera error: ' + err.message;
+                console.error('Camera error:', err);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                status.innerHTML = 'Camera stopped.';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Camera Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        video { width: 640px; height: 480px; border: 2px solid #333; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎥 Web Camera Test</h1>
+    <video id="video" autoplay muted></video>
+    <br>
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="testDetection()">Test Detection</button>
+    <button onclick="stopCamera()">Stop Camera</button>
+    
+    <div id="status"></div>
+    <div id="result"></div>
+
+    <script>
+        let video = document.getElementById('video');
+        let stream = null;
+
+        async function startCamera() {
+            try {
+                document.getElementById('status').innerHTML = '🔄 Requesting camera access...';
+                
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: 640, 
+                        height: 480,
+                        facingMode: 'environment'
+                    } 
+                });
+                
+                video.srcObject = stream;
+                document.getElementById('status').innerHTML = '<span class="success">✅ Camera working! You can see the video above.</span>';
+                
+            } catch (err) {
+                document.getElementById('status').innerHTML = '<span class="error">❌ Camera error: ' + err.message + '</span>';
+                console.error('Camera error:', err);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                document.getElementById('status').innerHTML = 'Camera stopped.';
+            }
+        }
+
+        async function testDetection() {
+            if (!stream) {
+                document.getElementById('result').innerHTML = '<span class="error">❌ Please start camera first!</span>';
+                return;
+            }
+
+            try {
+                document.getElementById('result').innerHTML = '🔄 Testing detection...';
+                
+                // Capture image from video
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                // Convert to base64
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Test API call
+                const response = await fetch('http://localhost:5000/api/detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('result').innerHTML = `
+                        <span class="success">✅ Detection working!</span><br>
+                        <strong>Detected:</strong> ${result.plastic_type}<br>
+                        <strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%<br>
+                        <strong>Recyclability:</strong> ${result.construction_data.recyclability}%
+                    `;
+                } else {
+                    const error = await response.json();
+                    document.getElementById('result').innerHTML = '<span class="error">❌ Detection failed: ' + error.error + '</span>';
+                }
+                
+            } catch (err) {
+                document.getElementById('result').innerHTML = '<span class="error">❌ Error: ' + err.message + '</span>';
+            }
+        }
+    </script>
+</body>
+</html>
+
